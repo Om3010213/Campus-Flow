@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "campusflow"
+version = "0.1.0"
+description = "Lecture timetable models and conflict detection"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+cp-sat = ["ortools==9.15.6755"]
+api = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "uvicorn>=0.30,<1"]
+api-test = ["httpx>=0.27,<1"]
+product = ["sqlalchemy>=2.0,<3", "reportlab>=4,<5"]
+
+[tool.setuptools.packages.find]
+include = ["campusflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

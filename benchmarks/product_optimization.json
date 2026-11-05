@@ -1,0 +1,45 @@
+{
+  "note": "Single local run per mode, 16 sessions, 15-second solver limit; scores are comparable only for complete valid schedules.",
+  "results": [
+    {
+      "optimize": false,
+      "status": "success",
+      "generation_seconds": 1.664109499999995,
+      "optimal": true,
+      "scheduled_sessions": 16,
+      "validation_seconds": 0.0019380999997338222,
+      "valid": true,
+      "quality": {
+        "score": 510.0,
+        "outside_preferred": 6,
+        "same_day_repeats": 7,
+        "peak_daily_minutes": 240.0,
+        "weights": {
+          "outside_preferred": 10,
+          "same_day_repeats": 30,
+          "peak_daily_minutes": 1
+        }
+      }
+    },
+    {
+      "optimize": true,
+      "status": "success",
+      "generation_seconds": 1.8660267999998723,
+      "optimal": true,
+      "scheduled_sessions": 16,
+      "validation_seconds": 0.0022341999997479434,
+      "valid": true,
+      "quality": {
+        "score": 120.0,
+        "outside_preferred": 0,
+        "same_day_repeats": 0,
+        "peak_daily_minutes": 120.0,
+        "weights": {
+          "outside_preferred": 10,
+          "same_day_repeats": 30,
+          "peak_daily_minutes": 1
+        }
+      }
+    }
+  ]
+}
