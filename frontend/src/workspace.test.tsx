@@ -14,7 +14,7 @@ describe('workspace components',()=>{
   it('navigates and shows real empty catalog states',async()=>{
     render(<MemoryRouter><App/></MemoryRouter>)
     expect(await screen.findByText('Your first timetable is waiting')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('link',{name:'Faculty',exact:true}))
+    fireEvent.click(screen.getByRole('link', { name: 'Faculty' }))
     expect(await screen.findByText('No faculty yet')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button',{name:'Toggle theme'}))
     expect(localStorage.getItem('campusflow-theme')).toBe('dark')
