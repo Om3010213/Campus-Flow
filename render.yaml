@@ -4,8 +4,7 @@ services:
     runtime: python
     branch: main
     region: singapore
-    plan: 1c-2g
-    numInstances: 1
+    plan: free
     buildCommand: python -m pip install '.[api,product,cp-sat,postgres]'
     startCommand: uvicorn campusflow.api.main:app --host 0.0.0.0 --port "$PORT" --workers 1 --proxy-headers
     healthCheckPath: /api/ready
@@ -26,7 +25,6 @@ services:
 databases:
   - name: campusflow-db
     region: singapore
-    plan: 0.1c-256mb
-    diskSizeGB: 1
+    plan: free
     postgresMajorVersion: '17'
     ipAllowList: []

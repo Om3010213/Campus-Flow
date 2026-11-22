@@ -28,14 +28,14 @@ platform operators. Platform directory/status endpoints are `/api/platform/insti
 and `PUT /api/platform/institutions/{id}/status`. Platform accounts cannot access academic
 records. Institution administrators cannot edit platform memberships.
 
-## Production on Render and Vercel
+## Free deployment on Render and Vercel
 
-1. Import `main` into Vercel, select `frontend` as the root directory and reserve
+1. Import `main` into a Vercel Hobby workspace, select `frontend` as the root directory and reserve
    the production domain. The project uses Node 22, pnpm from `packageManager`,
    `pnpm run build` and the Vite `dist` directory.
-2. Create a Render Blueprint from `render.yaml`. Enter the full Vercel HTTPS
-   origin as `CAMPUSFLOW_ALLOWED_ORIGINS`. The Blueprint uses paid compute and a
-   paid private PostgreSQL database with managed recovery. Render generates the
+2. Create a Render Blueprint from `render.yaml` in a workspace without a payment
+   method so exceeding usage limits cannot incur overage charges. Enter the full
+   Vercel HTTPS origin as `CAMPUSFLOW_ALLOWED_ORIGINS`. Render generates the
    session secret and injects the internal database URL. If Render provides
    narrower load balancer addresses, use them for `FORWARDED_ALLOW_IPS`.
 3. Set `CAMPUSFLOW_API_ORIGIN` in Vercel to the Render HTTPS origin without a
@@ -53,11 +53,12 @@ in production mode. For an existing SQLite installation, use the separate
 [legacy migration procedure](MULTI_COLLEGE_MIGRATION.md) on a backup before
 planning any data transfer. The Blueprint starts with a fresh database.
 
-Invite users through the app's private, expiring links. Email addresses serve as
-unverified account identifiers and the signup flow requires no SMTP. Preserve
-access to the Render shell for operator-led password recovery. Keep the session
-secret stable across restarts and rehearse restoring a managed backup into a
-separate database before relying on production for institution data.
+The free web service sleeps after 15 minutes of inactivity and its local filesystem
+is ephemeral. Its separate 1 GB PostgreSQL database survives web-service restarts,
+expires after 30 days, and has no managed backups. Export any needed hosted data
+with `pg_dump` before expiration. Render deletes an expired database after a
+14-day grace period. Invitation links are shared privately and signup requires no
+SMTP. Render Free does not include a shell for operator-led password recovery.
 
 ## Current limits
 
