@@ -13,8 +13,10 @@ from campusflow.api.schemas import GenerateRequest
 
 
 @pytest.fixture
-def client():
+def client(tmp_path, monkeypatch, authenticate_client):
+    monkeypatch.setenv("CAMPUSFLOW_DATABASE_URL", f"sqlite:///{(tmp_path / 'api.db').as_posix()}")
     with TestClient(app, raise_server_exceptions=False) as client:
+        authenticate_client(client)
         yield client
 
 

@@ -11,3 +11,5 @@
 
 /* Readable controls at laptop and mobile sizes. */
 .sidebar nav a{font-size:12.5px}.breadcrumb{font-size:12px}.muted{font-size:13px}.stat-top{font-size:12px}td{font-size:12px}th{font-size:10px}label{font-size:12px}.section-head .muted{font-size:11px}.lecture-card strong{font-size:11px}.lecture-card .lecture-time{font-size:9px}.lecture-card small{font-size:9px}
+
+.login-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:#edf3ef}.login-panel{width:100%;max-width:480px}.login-panel h1{font-size:30px;margin:0 0 12px}.login-panel .muted{margin-bottom:24px}.login-panel button+button{margin-left:10px}fieldset:disabled{opacity:.75}

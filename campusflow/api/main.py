@@ -11,9 +11,15 @@ from fastapi.responses import JSONResponse
 
 from .routes import router
 from .schemas import TimetableResponse
+from campusflow.auth.config import settings as security_settings
+from campusflow.auth.middleware import AuthenticationMiddleware
+from campusflow.auth.routes import router as auth_router
+from campusflow.auth.onboarding import router as onboarding_router
+from campusflow.auth.invitations import router as invitation_router
 
 @asynccontextmanager
 async def lifespan(app):
+    app.state.security = security_settings()
     if find_spec("sqlalchemy"):
         from campusflow.product.database import migrate
         from campusflow.product.jobs import recover
@@ -23,13 +29,18 @@ async def lifespan(app):
 
 
 app = FastAPI(title="CampusFlow API", version="0.2.0", lifespan=lifespan)
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
-                   "http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type"],
+    allow_origins=list(security_settings().origins), allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "X-CSRF-Token"],
 )
 app.include_router(router)
+app.include_router(auth_router)
+app.include_router(onboarding_router)
+app.include_router(invitation_router)
+from campusflow.auth.platform import router as platform_router
+app.include_router(platform_router)
 
 if find_spec("sqlalchemy"):
     from campusflow.product.routes import router as product_router

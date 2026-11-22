@@ -31,7 +31,7 @@ class SubjectRecord(Schema):
     semester: int = Field(ge=1, le=12, strict=True)
     weekly_sessions: int = Field(default=3, ge=1, le=30, strict=True)
     duration_minutes: int = Field(default=60, ge=1, le=720, strict=True)
-    kind: Literal["theory", "lab"] = "theory"
+    kind: Literal["theory", "lab", "activity"] = "theory"
 
 
 class RoomRecord(Schema):
@@ -44,6 +44,9 @@ class RoomRecord(Schema):
 
 
 class BatchRecord(Schema):
+    class_number: int | None = Field(default=None, ge=1, le=12)
+    class_teacher_id: Name | None = None
+    academic_year: str = Field(default="", max_length=200)
     id: Name
     department: Name
     semester: int = Field(ge=1, le=12, strict=True)
@@ -103,5 +106,10 @@ class RescheduleRequest(Schema):
     time_limit_seconds: float = Field(default=15, gt=0, le=30)
 
 
-RECORDS = {"faculty": FacultyRecord, "subjects": SubjectRecord, "rooms": RoomRecord,
+class NamedRecord(Schema):
+    id: Name
+    name: Name
+
+
+RECORDS = {"departments": NamedRecord, "academic_years": NamedRecord, "faculty": FacultyRecord, "subjects": SubjectRecord, "rooms": RoomRecord,
            "batches": BatchRecord, "requirements": RequirementRecord}

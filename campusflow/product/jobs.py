@@ -1,5 +1,6 @@
 """Small persistent job ledger with bounded local execution (single API process)."""
 import json
+from contextvars import copy_context
 import logging
 import subprocess
 import sys
@@ -43,7 +44,7 @@ def start(payload, name, scope):
         with transaction() as conn:
             conn.execute(db.jobs.insert().values(id=identifier, state="queued", name=name, scope=scope,
                 solver=payload["solver"], created_at=now(), payload=payload))
-        pool.submit(run, identifier, payload)
+        pool.submit(copy_context().run, run, identifier, payload)
     except Exception:
         capacity.release()
         raise
@@ -83,6 +84,7 @@ def get(conn, identifier, full=False):
 
 
 def recover():
-    with transaction() as conn:
+    # Trusted startup maintenance across institutions; no HTTP input.
+    with db.database().begin() as conn:
         conn.execute(update(db.jobs).where(db.jobs.c.state.in_(["queued", "running"])).values(
             state="interrupted", result={"status": "interrupted", "message": "Server restarted. Submit again.", "lectures": []}))

@@ -8,7 +8,7 @@ import { WeeklyGrid } from './Timetable'
 
 const catalog = {faculty:[],subjects:[],rooms:[],batches:[],requirements:[]}
 function response(data: unknown, ok=true) {return Promise.resolve({ok,json:()=>Promise.resolve(data)})}
-beforeEach(()=>{localStorage.clear();vi.restoreAllMocks();vi.stubGlobal('fetch',vi.fn((path: string)=>response(path==='/api/solvers'?{solvers:[{name:'csp',available:true}]}:{data:path.includes('catalog')?catalog:path.includes('settings')?{}:[]})))})
+beforeEach(()=>{localStorage.clear();vi.restoreAllMocks();vi.stubGlobal('fetch',vi.fn((path: string)=>response(path==='/api/auth/session'?{data:{user:{username:'admin',role:'administrator'},csrf_token:'test-csrf'}}:path==='/api/solvers'?{solvers:[{name:'csp',available:true}]}:{data:path.includes('catalog')?catalog:path.includes('settings')?{}:[]})))})
 
 describe('workspace components',()=>{
   it('navigates and shows real empty catalog states',async()=>{

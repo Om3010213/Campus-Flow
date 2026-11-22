@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: campusflow-api
+    runtime: python
+    branch: main
+    region: singapore
+    plan: 1c-2g
+    numInstances: 1
+    buildCommand: python -m pip install '.[api,product,cp-sat,postgres]'
+    startCommand: uvicorn campusflow.api.main:app --host 0.0.0.0 --port "$PORT" --workers 1 --proxy-headers
+    healthCheckPath: /api/ready
+    envVars:
+      - key: CAMPUSFLOW_ENV
+        value: production
+      - key: CAMPUSFLOW_SESSION_SECRET
+        generateValue: true
+      - key: CAMPUSFLOW_ALLOWED_ORIGINS
+        sync: false
+      - key: FORWARDED_ALLOW_IPS
+        value: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      - key: CAMPUSFLOW_DATABASE_URL
+        fromDatabase:
+          name: campusflow-db
+          property: connectionString
+
+databases:
+  - name: campusflow-db
+    region: singapore
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: '17'
+    ipAllowList: []

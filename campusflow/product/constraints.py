@@ -14,7 +14,7 @@ def eligible(policy, lecture) -> bool:
     room = next((r for r in policy["rooms"] if r["id"] == lecture.classroom), None)
     subject = next((s for s in policy["subjects"] if s["id"] == lecture.subject), None)
     batch = next((b for b in policy["batches"] if b["id"] == lecture.batch), None)
-    return bool(room and subject and batch and room["kind"] == subject["kind"]
+    return bool(room and subject and batch and room["kind"] == ("theory" if subject["kind"] == "activity" else subject["kind"])
                 and room["capacity"] >= batch["student_count"])
 
 

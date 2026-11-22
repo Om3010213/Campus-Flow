@@ -1,4 +1,31 @@
-# CampusFlow — Phase 1
+# CampusFlow
+
+CampusFlow supports **School and College institution workspaces** in one application.
+Direct Email + Password signup creates unprivileged accounts. Explicit School/College
+onboarding creates isolated workspaces; administrators invite planners,
+teachers/faculty and students. Shared CSP/CP-SAT engines schedule school periods and
+college lectures with availability, breaks, room types and weekly requirements.
+
+See [local onboarding](docs/ONBOARDING.md), [architecture and schema](docs/INSTITUTION_SCHEMA.md),
+[migration rehearsal](docs/MULTI_COLLEGE_MIGRATION.md) and [operations](docs/OPERATIONS.md).
+The master requirements remain in [MASTER_REQUIREMENTS.md](docs/MASTER_REQUIREMENTS.md).
+
+**Existing pre-tenant databases refuse automatic migration.** The live database has not
+been cut over. Start a separate development workspace safely:
+
+```powershell
+.venv\Scripts\python scripts/dev_onboarding.py --database data/development-v5.db
+# Another terminal:
+pnpm.cmd --dir frontend dev
+```
+
+Open http://127.0.0.1:5173/sign-up. No OTP, email verification or SMTP is required. After signup, sign in and explicitly
+create your institution workspace. Administrators share private invitation links. Full dependencies, environment variables and
+onboarding instructions are in the linked guide. No deployment or GitHub push was made.
+
+The following sections document the underlying library and previous phases. Current
+application authentication, institution isolation and startup instructions above take
+precedence over historical single-workspace examples.
 
 Minimal Python 3.10+ library for weekly lecture timetables. No runtime dependencies.
 
@@ -136,7 +163,7 @@ Uvicorn 0.54.0, and HTTPX 0.28.1 on Python 3.13.15.
 | `POST /api/timetables/generate` | Generate and independently validate a complete schedule |
 | `POST /api/timetables/validate` | Check supplied lectures against a scheduling problem |
 
-Example generation request (paste into Swagger's **Try it out**):
+Example generation request (authenticated requests also need a CSRF header):
 
 ```json
 {
@@ -195,8 +222,6 @@ API requests are limited to 500 sessions, 200 faculty, 100 batches, 50 classroom
 not guarantees of feasibility or completion. Unknown fields are rejected.
 The optional solver availability check is cached until application restart.
 
-CORS permits only HTTP localhost/127.0.0.1 origins on ports 3000 and 5173.
-This backend is for local development: no authentication, persistence, job queue,
-or frontend is included. Generation is request/response, process startup adds
-overhead, and the existing large-dataset solver limitations still apply.
-Multiple Uvicorn workers multiply the per-process concurrency allowance.
+Current authentication, local CORS, persistence and deployment requirements are
+documented in [Authentication setup](docs/AUTHENTICATION.md). Use one Uvicorn worker:
+background job recovery and concurrency control remain process-local.

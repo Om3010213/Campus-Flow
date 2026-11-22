@@ -17,7 +17,7 @@ def get(conn, identifier):
     if not row:
         raise ProductError("Timetable not found", 404)
     result = dict(row)
-    result["lectures"] = [{k: v for k, v in dict(row).items() if k != "version_id"} for row in
+    result["lectures"] = [{k: v for k, v in dict(row).items() if k not in ("version_id", "institution_id")} for row in
                           conn.execute(select(db.sessions).where(db.sessions.c.version_id == identifier)
                                        .order_by(db.sessions.c.id)).mappings()]
     result["validation"] = validate_snapshot(result["problem"], result["policy"], result["lectures"])

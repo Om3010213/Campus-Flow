@@ -19,8 +19,8 @@ class ProductError(Exception):
 def transaction():
     try:
         with db.database().begin() as conn:
-            conn.exec_driver_sql("BEGIN IMMEDIATE")
-            yield conn
+            db.lock_transaction(conn)
+            yield db.AcademicConnection(conn)
     except IntegrityError as exc:
         raise ProductError("Duplicate identifier or record still referenced by academic data or timetables.", 409) from exc
 
@@ -28,7 +28,7 @@ def transaction():
 def records(conn, kind: str) -> list[dict]:
     if kind not in db.TABLES:
         raise ProductError("Unknown academic entity", 404)
-    rows = [dict(row) for row in conn.execute(select(db.TABLES[kind]).order_by(db.TABLES[kind].c.id)).mappings()]
+    rows = [{k:v for k,v in dict(row).items() if k != "institution_id"} for row in conn.execute(select(db.TABLES[kind]).order_by(db.TABLES[kind].c.id)).mappings()]
     if kind in ("faculty", "rooms"):
         windows = db.faculty_windows if kind == "faculty" else db.room_windows
         key = "faculty_id" if kind == "faculty" else "room_id"
@@ -51,6 +51,14 @@ def save_record(conn, kind: str, body: dict, editing: str | None = None) -> dict
         raise ProductError("Unknown academic entity", 404)
     item = RECORDS[kind].model_validate(body).model_dump(mode="json")
     table = db.TABLES[kind]
+    from campusflow.auth.onboarding_tables import institutions
+    from campusflow.tenancy import institution_id
+    institution = conn.execute(select(institutions).where(institutions.c.institution_id == institution_id())).mappings().one()
+    if institution["institution_type"] == "SCHOOL":
+        if kind == "batches" and item.get("class_number") is None:
+            raise ProductError("School sections require a class number from 1 to 12")
+        if kind in ("subjects", "requirements") and item["duration_minutes"] % settings(conn)["slot_minutes"]:
+            raise ProductError("School durations must be a whole number of configured periods")
     if editing is not None:
         if editing != item["id"]:
             raise ProductError("Identifiers cannot be changed; create a new record instead.")
@@ -104,6 +112,13 @@ def settings(conn) -> dict:
 
 def save_settings(conn, body):
     value = AcademicSettings.model_validate(body).model_dump(mode="json")
+    from campusflow.auth.onboarding_tables import institutions
+    from campusflow.tenancy import institution_id
+    kind=conn.execute(select(institutions.c.institution_type).where(institutions.c.institution_id==institution_id())).scalar_one()
+    if kind=="SCHOOL":
+        for table in (db.subjects,db.requirements):
+            if any(duration % value["slot_minutes"] for duration in conn.execute(select(table.c.duration_minutes)).scalars()):
+                raise ProductError("Existing school durations must be whole multiples of the new period length")
     conn.execute(delete(db.settings).where(db.settings.c.id == 1))
     conn.execute(db.settings.insert().values(id=1, value=value))
     return value

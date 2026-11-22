@@ -1,12 +1,14 @@
 from copy import deepcopy
 
-from fastapi import APIRouter, Body, Response
+from fastapi import APIRouter, Body, Response, Request
 from pydantic import ValidationError
 from sqlalchemy import select, delete, update
 
 from campusflow.api.schemas import LectureInput
 from . import database as db, catalog, jobs, versions, reports
 from .catalog import ProductError, transaction
+from campusflow.auth.permissions import require_scope
+from campusflow.auth.visibility import personal
 from .schemas import AcademicSettings, JobRequest, EditRequest, RevisionRequest, RescheduleRequest
 
 router = APIRouter(prefix="/api/product", tags=["Persistent campus management"])
@@ -18,13 +20,13 @@ def ok(data):
 
 @router.get("/catalog")
 def all_records():
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         return ok(catalog.catalog(conn))
 
 
 @router.get("/records/{kind}")
 def list_records(kind: str, q: str = "", department: str = "", semester: int | None = None):
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         rows = catalog.records(conn, kind)
     return ok([row for row in rows if (not q or q.casefold() in " ".join(str(v) for v in row.values()).casefold())
                and (not department or row.get("department") == department)
@@ -58,7 +60,7 @@ def delete_record(kind: str, identifier: str):
 
 @router.get("/settings")
 def get_settings():
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         return ok(catalog.settings(conn))
 
 
@@ -77,9 +79,10 @@ def seed_data():
 
 
 @router.post("/jobs", status_code=202)
-def generate(request: JobRequest):
+def generate(request: JobRequest, http: Request):
+    require_scope(http.state.user, request.scope)
     try:
-        with db.database().connect() as conn:
+        with db.connection() as conn:
             payload = catalog.snapshot(conn)
     except ValidationError as exc:
         raise ProductError("Academic configuration exceeds engine limits or has invalid references.",
@@ -90,15 +93,15 @@ def generate(request: JobRequest):
 
 
 @router.get("/jobs")
-def job_list():
-    with db.database().connect() as conn:
+def job_list(http: Request):
+    with db.connection() as conn:
         ids = conn.execute(select(db.jobs.c.id).order_by(db.jobs.c.created_at.desc()).limit(30)).scalars()
-        return ok([jobs.get(conn, identifier) for identifier in ids])
+        return ok([j for identifier in ids if (j := jobs.get(conn, identifier)) and (http.state.user["role"] == "administrator" or j["scope"] in http.state.user["scopes"])])
 
 
 @router.get("/jobs/{identifier}")
 def job_status(identifier: str):
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         return ok(jobs.get(conn, identifier))
 
 
@@ -128,16 +131,38 @@ def discard_job(identifier: str):
 
 
 @router.get("/versions")
-def version_list():
-    with db.database().connect() as conn:
+def version_list(http: Request):
+    with db.connection() as conn:
         columns = [db.versions.c[k] for k in ("id", "name", "scope", "state", "revision", "created_at", "source_id")]
-        return ok([dict(r) for r in conn.execute(select(*columns).order_by(db.versions.c.created_at.desc())).mappings()])
+        user = http.state.user
+        if user["role"] in ("viewer", "teacher", "student"):
+            columns = [column for column in columns if column.name != "source_id"]
+        query = select(*columns).order_by(db.versions.c.created_at.desc())
+        if user["role"] not in ("administrator", "teacher", "student"):
+            query = query.where(db.versions.c.scope.in_(user["scopes"]))
+        if user["role"] in ("viewer", "teacher", "student"):
+            query = query.where(db.versions.c.state == "published")
+        if user["role"] in ("teacher", "student"):
+            owned = select(db.sessions.c.version_id)
+            owned = owned.where(db.sessions.c.faculty == user["faculty_id"]) if user["role"] == "teacher" else owned.where(db.sessions.c.batch.in_(user["batch_ids"]))
+            query = query.where(db.versions.c.id.in_(set(conn.execute(owned).scalars())))
+        return ok([dict(r) for r in conn.execute(query).mappings()])
 
 
 @router.get("/versions/{identifier}")
-def version_detail(identifier: str):
-    with db.database().connect() as conn:
-        return ok(versions.get(conn, identifier))
+def version_detail(identifier: str, http: Request):
+    with db.connection() as conn:
+        version = personal(http.state.user, versions.get(conn, identifier))
+        if http.state.user["role"] in ("viewer", "teacher", "student"):
+            used = {field: {l[field] for l in version["lectures"]} for field in ("subject", "faculty", "batch", "classroom")}
+            spec = {"subjects": ("subject", ("id", "name", "kind")), "faculty": ("faculty", ("id", "name")),
+                    "batches": ("batch", ("id", "department", "semester")), "rooms": ("classroom", ("id", "name", "kind", "capacity"))}
+            version["policy"] = {kind: [{k: row[k] for k in keys} for row in version["policy"][kind] if row["id"] in used[field]]
+                                 for kind, (field, keys) in spec.items()}
+            version.pop("changes", None)
+            version.pop("source_id", None)
+            version["problem"] = {k: version["problem"][k] for k in ("requirements", "working_days", "time_slots")}
+        return ok(version)
 
 
 @router.put("/versions/{identifier}")
@@ -148,7 +173,7 @@ def edit_version(identifier: str, body: EditRequest):
 
 @router.post("/versions/{identifier}/validate")
 def validate_version(identifier: str, body: EditRequest):
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         return ok(versions.edit(conn, identifier, body, save=False))
 
 
@@ -189,7 +214,7 @@ def delete_version(identifier: str):
 
 @router.post("/versions/{identifier}/reschedule", status_code=202)
 def reschedule(identifier: str, body: RescheduleRequest):
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         version = versions.get(conn, identifier)
     problem = deepcopy(version["problem"])
     if body.faculty_id not in {f["name"] for f in problem["faculty"]}:
@@ -214,7 +239,7 @@ def reschedule(identifier: str, body: RescheduleRequest):
 
 @router.post("/versions/{identifier}/regenerate", status_code=202)
 def regenerate(identifier: str, body: JobRequest):
-    with db.database().connect() as conn:
+    with db.connection() as conn:
         version = versions.get(conn, identifier)
     if version["state"] not in ("draft", "generated"):
         raise ProductError("Duplicate the protected version to a draft before regenerating.", 409)
@@ -225,15 +250,23 @@ def regenerate(identifier: str, body: JobRequest):
 
 
 @router.get("/versions/{identifier}/reports")
-def version_reports(identifier: str):
-    with db.database().connect() as conn:
-        return ok(reports.report(versions.get(conn, identifier)))
+def version_reports(identifier: str, http: Request):
+    with db.connection() as conn:
+        version = versions.get(conn, identifier)
+        version = personal(http.state.user, version)
+        result = reports.report(version)
+        if http.state.user["role"] in ("viewer", "teacher", "student"):
+            for key, field in (("faculty", "faculty"), ("rooms", "classroom")):
+                used = {lecture[field] for lecture in version["lectures"]}
+                result[key] = [row for row in result[key] if row["id"] in used]
+        return ok(result)
 
 
 @router.get("/versions/{identifier}/export/{format}")
-def export_version(identifier: str, format: str):
-    with db.database().connect() as conn:
+def export_version(identifier: str, format: str, http: Request):
+    with db.connection() as conn:
         version = versions.get(conn, identifier)
+    version = personal(http.state.user, version)
     if format not in ("pdf", "csv"):
         raise ProductError("Choose PDF or CSV", 404)
     content = reports.pdf_export(version) if format == "pdf" else reports.csv_export(version)

@@ -14,9 +14,10 @@ from campusflow.product.worker import solve
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
+def client(tmp_path, monkeypatch, authenticate_client):
     monkeypatch.setenv("CAMPUSFLOW_DATABASE_URL", f"sqlite:///{(tmp_path / 'test.db').as_posix()}")
     with TestClient(app, raise_server_exceptions=False) as client:
+        authenticate_client(client)
         yield client
 
 
@@ -53,7 +54,7 @@ def test_catalog_crud_validation_integrity(client):
     data(client.delete("/api/product/records/subjects/S1"))
     with db.database().connect() as conn:
         assert conn.execute(text("PRAGMA foreign_keys")).scalar() == 1
-        assert conn.execute(select(db.schema_versions.c.version)).scalar() == 1
+        assert set(conn.execute(select(db.schema_versions.c.version)).scalars()) == {1, 2, 3, 4, 5, 6}
     db.migrate()  # migration is idempotent
 
 
