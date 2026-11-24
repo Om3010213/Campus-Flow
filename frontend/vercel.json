@@ -1,0 +1,16 @@
+{
+  "framework": "vite",
+  "installCommand": "corepack pnpm install --frozen-lockfile",
+  "buildCommand": "corepack pnpm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://campusflow-api-70eb.onrender.com"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
