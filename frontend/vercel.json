@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://campusflow-api-70eb.onrender.com"
+      "destination": "https://campusflow-api-70eb.onrender.com/api/:path*"
     },
     {
       "source": "/((?!assets/|api/).*)",
