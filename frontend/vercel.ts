@@ -1,4 +1,4 @@
-const backend = process.env.CAMPUSFLOW_API_ORIGIN
+const backend = 'https://campusflow-api-70eb.onrender.com'
 
 if (!backend || !/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(backend)) {
   throw new Error('Set CAMPUSFLOW_API_ORIGIN to the HTTPS origin of the Render service.')
